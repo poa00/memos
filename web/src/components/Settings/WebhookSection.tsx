@@ -8,9 +8,9 @@ import { Webhook } from "@/types/proto/api/v1/webhook_service";
 import { useTranslate } from "@/utils/i18n";
 import showCreateWebhookDialog from "../CreateWebhookDialog";
 
-const listWebhooks = async (userId: number) => {
+const listWebhooks = async (user: string) => {
   const { webhooks } = await webhookServiceClient.listWebhooks({
-    creatorId: userId,
+    creator: user,
   });
   return webhooks;
 };
@@ -21,13 +21,13 @@ const WebhookSection = () => {
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
 
   useEffect(() => {
-    listWebhooks(currentUser.id).then((webhooks) => {
+    listWebhooks(currentUser.name).then((webhooks) => {
       setWebhooks(webhooks);
     });
   }, []);
 
   const handleCreateAccessTokenDialogConfirm = async () => {
-    const webhooks = await listWebhooks(currentUser.id);
+    const webhooks = await listWebhooks(currentUser.name);
     setWebhooks(webhooks);
   };
 
@@ -79,7 +79,9 @@ const WebhookSection = () => {
                 {webhooks.map((webhook) => (
                   <tr key={webhook.id}>
                     <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-900 dark:text-gray-400">{webhook.name}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-900 dark:text-gray-400">{webhook.url}</td>
+                    <td className="max-w-[200px] px-3 py-2 text-sm text-gray-900 dark:text-gray-400 truncate" title={webhook.url}>
+                      {webhook.url}
+                    </td>
                     <td className="relative whitespace-nowrap px-3 py-2 text-right text-sm">
                       <Button
                         variant="plain"

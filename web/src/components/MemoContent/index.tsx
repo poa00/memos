@@ -24,7 +24,10 @@ interface Props {
   contentClassName?: string;
   onClick?: (e: React.MouseEvent) => void;
   onDoubleClick?: (e: React.MouseEvent) => void;
+  parentPage?: string;
 }
+
+type ContentCompactView = "ALL" | "SNIPPET";
 
 const MemoContent: React.FC<Props> = (props: Props) => {
   const { className, contentClassName, nodes, memoName, embeddedMemos, onClick, onDoubleClick } = props;
@@ -32,7 +35,7 @@ const MemoContent: React.FC<Props> = (props: Props) => {
   const currentUser = useCurrentUser();
   const memoStore = useMemoStore();
   const memoContentContainerRef = useRef<HTMLDivElement>(null);
-  const [showCompactMode, setShowCompactMode] = useState<boolean>(false);
+  const [showCompactMode, setShowCompactMode] = useState<ContentCompactView | undefined>(undefined);
   const memo = memoName ? memoStore.getMemoByName(memoName) : null;
   const allowEdit = !props.readonly && memo && (currentUser?.name === memo.creator || isSuperUser(currentUser));
 
@@ -46,17 +49,17 @@ const MemoContent: React.FC<Props> = (props: Props) => {
     }
 
     if ((memoContentContainerRef.current as HTMLDivElement).getBoundingClientRect().height > MAX_DISPLAY_HEIGHT) {
-      setShowCompactMode(true);
+      setShowCompactMode("ALL");
     }
   }, []);
 
-  const handleMemoContentClick = async (e: React.MouseEvent) => {
+  const onMemoContentClick = async (e: React.MouseEvent) => {
     if (onClick) {
       onClick(e);
     }
   };
 
-  const handleMemoContentDoubleClick = async (e: React.MouseEvent) => {
+  const onMemoContentDoubleClick = async (e: React.MouseEvent) => {
     if (onDoubleClick) {
       onDoubleClick(e);
     }
@@ -64,6 +67,10 @@ const MemoContent: React.FC<Props> = (props: Props) => {
 
   let prevNode: Node | null = null;
   let skipNextLineBreakFlag = false;
+  const compactStates = {
+    ALL: { text: t("memo.show-more"), nextState: "SNIPPET" },
+    SNIPPET: { text: t("memo.show-less"), nextState: "ALL" },
+  };
 
   return (
     <RendererContext.Provider
@@ -73,6 +80,7 @@ const MemoContent: React.FC<Props> = (props: Props) => {
         readonly: !allowEdit,
         disableFilter: props.disableFilter,
         embeddedMemos: embeddedMemos || new Set(),
+        parentPage: props.parentPage,
       }}
     >
       <div className={`w-full flex flex-col justify-start items-start text-gray-800 dark:text-gray-400 ${className || ""}`}>
@@ -80,11 +88,11 @@ const MemoContent: React.FC<Props> = (props: Props) => {
           ref={memoContentContainerRef}
           className={clsx(
             "relative w-full max-w-full word-break text-base leading-snug space-y-2 whitespace-pre-wrap",
-            showCompactMode && "line-clamp-6 max-h-60",
+            showCompactMode == "ALL" && "line-clamp-6 max-h-60",
             contentClassName,
           )}
-          onClick={handleMemoContentClick}
-          onDoubleClick={handleMemoContentDoubleClick}
+          onClick={onMemoContentClick}
+          onDoubleClick={onMemoContentDoubleClick}
         >
           {nodes.map((node, index) => {
             if (prevNode?.type !== NodeType.LINE_BREAK && node.type === NodeType.LINE_BREAK && skipNextLineBreakFlag) {
@@ -95,17 +103,19 @@ const MemoContent: React.FC<Props> = (props: Props) => {
             skipNextLineBreakFlag = true;
             return <Renderer key={`${node.type}-${index}`} index={String(index)} node={node} />;
           })}
-          {showCompactMode && (
+          {showCompactMode == "ALL" && (
             <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-b from-transparent dark:to-zinc-800 to-white pointer-events-none"></div>
           )}
         </div>
-        {showCompactMode && (
+        {showCompactMode != undefined && (
           <div className="w-full mt-1">
             <span
               className="w-auto flex flex-row justify-start items-center cursor-pointer text-sm text-blue-600 dark:text-blue-400 hover:opacity-80"
-              onClick={() => setShowCompactMode(false)}
+              onClick={() => {
+                setShowCompactMode(compactStates[showCompactMode].nextState as ContentCompactView);
+              }}
             >
-              <span>{t("memo.show-more")}</span>
+              {compactStates[showCompactMode].text}
             </span>
           </div>
         )}
